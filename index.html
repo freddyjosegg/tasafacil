@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TasaFácil - Calculadora y Presupuesto</title>
+    <meta name="theme-color" content="#0077b6">
+    <link rel="manifest" href="./manifest.json">
+    
+    <style>
+        /* --- VARIABLES DE COLOR (TEMA CLARO POR DEFECTO) --- */
+        :root {
+            --bg-app: #f4f7f6;
+            --bg-container: #fff;
+            --text-primary: #333;
+            --text-secondary: #555;
+            --accent-color: #0077b6;
+            --accent-hover: #005f8d;
+            --box-rate-bg: #e8f4f8;
+            --box-rate-border: #b6e2f3;
+            --box-calc-bg: #fff3cd;
+            --box-calc-border: #ffeeba;
+            --box-calc-text: #856404;
+            --box-balance-bg: #d4edda;
+            --box-balance-border: #c3e6cb;
+            --box-balance-text: #155724;
+            --box-form-bg: #f8f9fa;
+            --border-color: #ccc;
+            --input-bg: #fff;
+            --details-bg: #f8f9fa;
+            --shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        /* --- TEMA OSCURO --- */
+        body.dark-mode {
+            --bg-app: #121212;
+            --bg-container: #1e1e1e;
+            --text-primary: #e0e0e0;
+            --text-secondary: #aaa;
+            --accent-color: #4facfe;
+            --accent-hover: #00c6fb;
+            --box-rate-bg: #1a2a33;
+            --box-rate-border: #2c3e50;
+            --box-calc-bg: #332b00;
+            --box-calc-border: #4f4300;
+            --box-calc-text: #ffd966;
+            --box-balance-bg: #0c2b15;
+            --box-balance-border: #144522;
+            --box-balance-text: #a7f3d0;
+            --box-form-bg: #2c2c2c;
+            --border-color: #444;
+            --input-bg: #333;
+            --details-bg: #2c2c2c;
+            --shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg-app); margin: 0; padding: 20px; color: var(--text-primary); padding-bottom: 40px; transition: background-color 0.3s, color 0.3s; }
+        .container { max-width: 500px; margin: 0 auto; background: var(--bg-container); padding: 25px; border-radius: 12px; box-shadow: var(--shadow); transition: background-color 0.3s; }
+        
+        /* Header y Botón Dark Mode */
+        .header-flex { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        h1 { margin: 0; font-size: 1.8em; color: var(--text-primary); }
+        .theme-toggle-btn { background: none; border: none; font-size: 1.5em; cursor: pointer; padding: 5px; border-radius: 50%; transition: background 0.2s; }
+        .theme-toggle-btn:hover { background: rgba(0,0,0,0.1); }
+        body.dark-mode .theme-toggle-btn:hover { background: rgba(255,255,255,0.1); }
+        h2, h3 { text-align: center; color: var(--text-primary); }
+
+        /* Cajas y Componentes */
+        .rate-box { background: var(--box-rate-bg); padding: 15px; border-radius: 8px; text-align: center; font-size: 1.3em; font-weight: bold; margin-bottom: 20px; color: var(--accent-color); border: 1px solid var(--box-rate-border); }
+        .quick-calc-box { background: var(--box-calc-bg); padding: 20px; border-radius: 8px; margin-bottom: 25px; border: 1px solid var(--box-calc-border); }
+        .quick-calc-box h2 { margin-top: 0; font-size: 1.3em; color: var(--box-calc-text); }
+        
+        .result-container { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 15px; }
+        .copy-btn { background: var(--box-calc-border); color: var(--box-calc-text); border: 1px solid var(--box-calc-text); border-radius: 6px; padding: 5px 10px; font-size: 1.2em; cursor: pointer; transition: all 0.2s; display: none; }
+        
+        .balance-box { background: var(--box-balance-bg); padding: 20px; border-radius: 8px; text-align: center; margin-top: 25px; border: 1px solid var(--box-balance-border); }
+        .balance-box h3 { margin: 10px 0 0 0; color: var(--box-balance-text); font-size: 1.8em; }
+        .balance-box p.sub-balance { margin: 5px 0 0 0; font-size: 1.1em; color: var(--box-balance-text); font-weight: bold; opacity: 0.8; }
+
+        /* --- BARRA DE PROGRESO --- */
+        .progress-container { background-color: rgba(0,0,0,0.1); height: 12px; border-radius: 10px; margin-top: 15px; overflow: hidden; position: relative; }
+        .progress-bar { height: 100%; width: 0%; transition: width 0.5s ease-in-out, background-color 0.5s ease-in-out; }
+        /* Colores dinámicos de la barra */
+        .pb-green { background-color: #28a745; }
+        .pb-yellow { background-color: #ffc107; }
+        .pb-red { background-color: #dc3545; }
+        .progress-label { font-size: 0.85em; color: var(--text-secondary); margin-top: 5px; text-align: right; display: block; font-weight: bold;}
+        
+        /* Formularios y Botones */
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; color: var(--text-secondary); }
+        input[type="text"], select { width: 100%; padding: 12px; border: 1px solid var(--border-color); border-radius: 6px; box-sizing: border-box; font-size: 1em; background: var(--input-bg); color: var(--text-primary); }
+        input[type="text"]:focus, select:focus { border-color: var(--accent-color); outline: none; }
+        
+        button.action-btn { width: 100%; padding: 12px; background-color: var(--accent-color); color: white; border: none; border-radius: 6px; font-size: 1.1em; font-weight: bold; cursor: pointer; transition: background 0.3s; }
+        button.action-btn:hover { background-color: var(--accent-hover); }
+        
+        .bottom-controls { display: flex; gap: 10px; margin-top: 20px; }
+        .btn-danger, .btn-success { flex: 1; padding: 10px; border: none; color: white; border-radius: 6px; cursor: pointer; font-size: 0.9em; font-weight: bold; display: none; }
+        .btn-danger { background-color: #dc3545; } .btn-danger:hover { background-color: #c82333; }
+        .btn-success { background-color: #28a745; } .btn-success:hover { background-color: #218838; }
+        
+        hr { border: 0; border-top: 1px solid var(--border-color); margin: 25px 0; }
+        .expense-list { list-style: none; padding: 0; margin-top: 20px; }
+        .expense-list li { display: flex; justify-content: space-between; background: var(--box-form-bg); padding: 12px; border-bottom: 1px solid var(--border-color); border-radius: 4px; margin-bottom: 5px; color: var(--text-primary); }
+        .text-red { color: #dc3545; font-weight: bold; }
+        .text-green { color: #28a745; font-weight: bold; }
+        .text-muted { color: var(--text-secondary); font-size: 0.9em; text-align: center; display: block; margin-top: 5px; opacity: 0.7;}
+
+        details { margin-top: 30px; background: var(--details-bg); padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); }
+        summary { font-weight: bold; cursor: pointer; color: var(--accent-color); list-style: none; display: flex; align-items: center; gap: 5px; }
+        summary::after { content: "▼"; font-size: 0.8em; margin-left: auto; transition: transform 0.2s; }
+        details[open] summary::after { transform: rotate(180deg); }
+        .manual-content { margin-top: 10px; font-size: 0.95em; line-height: 1.6; color: var(--text-secondary); }
+        
+        .footer-credit { text-align: center; margin-top: 30px; font-size: 0.85em; color: var(--text-secondary); border-top: 1px solid var(--border-color); padding-top: 15px; opacity: 0.8; }
+        .footer-credit span { background: linear-gradient(90deg, #4285F4, #9B72CB); -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-flex">
+        <h1>TasaFácil</h1>
+        <button class="theme-toggle-btn" id="theme-toggle" onclick="toggleDarkMode()" title="Cambiar Modo Oscuro/Claro">☀️</button>
+    </div>
+    
+    <div class="rate-box">
+        Tasa BCV: <span id="bcv-rate">Cargando...</span> Bs/USD
+        <span class="text-muted" id="last-update">Buscando actualización...</span>
+    </div>
+
+    <div class="quick-calc-box">
+        <h2>Calculadora Rápida</h2>
+        <div class="form-group">
+            <input type="text" inputmode="decimal" id="quick-amount" placeholder="Monto a convertir..." oninput="calculateQuick()">
+        </div>
+        <div class="form-group">
+            <select id="quick-currency" onchange="calculateQuick()">
+                <option value="USD">De Dólares (USD) a Bolívares (Bs)</option>
+                <option value="VES">De Bolívares (Bs) a Dólares (USD)</option>
+            </select>
+        </div>
+        
+        <div class="result-container">
+            <h3 id="quick-result" style="color: var(--box-calc-text); margin: 0;">Resultado: 0,00</h3>
+            <button class="copy-btn" id="copy-btn" onclick="copyToClipboard()" title="Copiar monto">📋</button>
+        </div>
+    </div>
+
+    <hr>
+
+    <h2>Gestor de Presupuesto</h2>
+    <div class="form-group">
+        <label for="budget">Presupuesto Inicial (USD):</label>
+        <input type="text" inputmode="decimal" id="budget" placeholder="Ej. 100,50" oninput="saveDataAndRecalculate()">
+    </div>
+
+    <div style="background: var(--box-form-bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color);">
+        <label style="text-align: center; margin-bottom: 15px;">Registrar Movimiento</label>
+        <div class="form-group">
+            <input type="text" inputmode="decimal" id="amount" placeholder="Monto del movimiento (Ej. 5,50)">
+        </div>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+            <select id="currency" style="flex: 1;">
+                <option value="USD">USD ($)</option>
+                <option value="VES">Bs</option>
+            </select>
+            <select id="type" style="flex: 1;">
+                <option value="expense">Gasto (-)</option>
+                <option value="income">Ingreso (+)</option>
+            </select>
+        </div>
+        <button class="action-btn" onclick="addTransaction()">Agregar a la cuenta</button>
+    </div>
+
+    <div class="balance-box">
+        <p style="margin:0; font-weight: bold; color: var(--box-balance-text);">Saldo Disponible:</p>
+        <h3 id="remaining-usd">$0,00</h3>
+        <p class="sub-balance" id="remaining-ves">Bs 0,00</p>
+        
+        <div class="progress-container" id="progress-container" style="display: none;">
+            <div class="progress-bar pb-green" id="progress-bar"></div>
+        </div>
+        <span class="progress-label" id="progress-label" style="display: none;">0% Gastado</span>
+    </div>
+
+    <ul class="expense-list" id="transaction-list"></ul>
+    
+    <div class="bottom-controls">
+        <button class="btn-danger" id="clear-btn" onclick="clearData()">🗑️ Limpiar Todo</button>
+        <button class="btn-success" id="export-btn" onclick="exportToCSV()">📊 Bajar a Excel</button>
+    </div>
+
+    <details>
+        <summary>❓ Guía de Usuario</summary>
+        <div class="manual-content">
+            <p><strong>1. Modo Oscuro:</strong> Toca el sol/luna (☀️/🌙) arriba para cambiar el tema visual.</p>
+            <p><strong>2. Calculadora Rápida:</strong> Escribe un monto para ver su conversión al instante y usa el botón 📋 para copiar el resultado numérico limpio.</p>
+            <p><strong>3. Gestor de Presupuesto:</strong> Define tu base inicial en USD y registra tus movimientos, <strong>indicando si fueron en dólares o en bolívares</strong> (la app hará la conversión sola). Una barra te indicará visualmente cuánto saldo has consumido. Puedes exportar tu historial a Excel o limpiarlo con los botones inferiores.</p>
+        </div>
+    </details>
+
+    <div class="footer-credit">
+        Desarrollada enteramente con <span>Inteligencia Artificial Gemini</span> de Google.
+    </div>
+</div>
+
+<script src="./app.js"></script>
+
+</body>
+</html>

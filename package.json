@@ -1,0 +1,12 @@
+{
+  "name": "tasafacil",
+  "version": "1.0.0",
+  "description": "Calculadora y Presupuesto PWA",
+  "main": "app.js",
+  "scripts": {
+    "codegraph": "npx madge --image assets/codegraph.svg app.js"
+  },
+  "devDependencies": {
+    "madge": "^8.0.0"
+  }
+}
