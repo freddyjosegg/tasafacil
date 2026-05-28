@@ -1,8 +1,9 @@
-const CACHE_NAME = 'tasafacil-v1';
+const CACHE_NAME = 'tasafacil-v2';
 const urlsToCache = [
   './',
   './index.html',
-  './manifest.json'
+  './manifest.json',
+  './app.js'
 ];
 
 self.addEventListener('install', event => {
