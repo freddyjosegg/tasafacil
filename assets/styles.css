@@ -48,6 +48,10 @@
         --details-bg: rgba(120, 53, 15, 0.03);
         --shadow: 0 20px 40px rgba(120, 53, 15, 0.08);
     }
+    h1 {
+        background-image: linear-gradient(135deg, #ca8a04 0%, #b45309 50%, #78350f 100%);
+        text-shadow: 0 0 20px rgba(217, 119, 6, 0.1);
+    }
 }
 
 /* --- HARD OVERRIDES VIA BODY CLASSES --- */
@@ -157,7 +161,7 @@ h1 {
     font-size: 2.1em;
     font-weight: 800;
     letter-spacing: -0.03em;
-    background: linear-gradient(135deg, #fef08a 0%, #fbbf24 50%, #ca8a04 100%);
+    background-image: linear-gradient(135deg, #fef08a 0%, #fbbf24 50%, #ca8a04 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     text-shadow: 0 0 20px rgba(251, 191, 36, 0.15);
@@ -165,8 +169,13 @@ h1 {
 }
 
 body.theme-light h1 {
-    background: linear-gradient(135deg, #ca8a04 0%, #b45309 50%, #78350f 100%);
+    background-image: linear-gradient(135deg, #ca8a04 0%, #b45309 50%, #78350f 100%);
     text-shadow: 0 0 20px rgba(217, 119, 6, 0.1);
+}
+
+body.theme-dark h1 {
+    background-image: linear-gradient(135deg, #fef08a 0%, #fbbf24 50%, #ca8a04 100%);
+    text-shadow: 0 0 20px rgba(251, 191, 36, 0.15);
 }
 
 h2 {
