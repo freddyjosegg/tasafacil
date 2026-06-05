@@ -1,6 +1,6 @@
 {
   "name": "tasafacil",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Calculadora y Presupuesto PWA",
   "main": "app.js",
   "scripts": {

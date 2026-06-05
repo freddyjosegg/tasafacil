@@ -15,7 +15,7 @@ const RATE_ENDPOINTS = {
     'COP_paralelo': null
 };
 
-// --- LÓGICA DE TEMA (CLARO / OSCURO / PREMIUM) ---
+// --- LÓGICA DE TEMA (PREMIUM CLARO / PREMIUM OSCURO) ---
 function toggleTheme() {
     let currentTheme = localStorage.getItem('tasafacil_theme') || 'auto';
     let nextTheme = 'light';
@@ -25,9 +25,7 @@ function toggleTheme() {
         nextTheme = prefersDark ? 'light' : 'dark';
     } else if (currentTheme === 'light') {
         nextTheme = 'dark';
-    } else if (currentTheme === 'dark') {
-        nextTheme = 'premium';
-    } else if (currentTheme === 'premium') {
+    } else {
         nextTheme = 'light';
     }
     
@@ -35,14 +33,12 @@ function toggleTheme() {
 }
 
 function setTheme(theme) {
-    document.body.classList.remove('theme-light', 'theme-dark', 'theme-premium');
+    document.body.classList.remove('theme-light', 'theme-dark');
     
     if (theme === 'light') {
         document.body.classList.add('theme-light');
     } else if (theme === 'dark') {
         document.body.classList.add('theme-dark');
-    } else if (theme === 'premium') {
-        document.body.classList.add('theme-premium');
     }
     
     localStorage.setItem('tasafacil_theme', theme);
@@ -58,17 +54,14 @@ function updateThemeIcon(theme) {
     
     if (theme === 'light') {
         icon = '☀️';
-        title = 'Cambiar a modo oscuro (🌙)';
+        title = 'Cambiar a modo Premium Oscuro (🌙)';
     } else if (theme === 'dark') {
         icon = '🌙';
-        title = 'Cambiar a modo premium (👑)';
-    } else if (theme === 'premium') {
-        icon = '👑';
-        title = 'Cambiar a modo claro (☀️)';
+        title = 'Cambiar a modo Premium Claro (☀️)';
     } else {
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         icon = prefersDark ? '🌙' : '☀️';
-        title = 'Cambiar tema';
+        title = prefersDark ? 'Cambiar a modo Premium Claro (☀️)' : 'Cambiar a modo Premium Oscuro (🌙)';
     }
     
     btn.innerText = icon;
@@ -80,10 +73,14 @@ const savedTheme = localStorage.getItem('tasafacil_theme');
 if (savedTheme) {
     setTheme(savedTheme);
 } else {
-    updateThemeIcon('auto');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    setTheme(prefersDark ? 'dark' : 'light');
+    localStorage.removeItem('tasafacil_theme');
+    
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
         if (!localStorage.getItem('tasafacil_theme')) {
-            updateThemeIcon('auto');
+            setTheme(e.matches ? 'dark' : 'light');
+            localStorage.removeItem('tasafacil_theme');
         }
     });
 }
