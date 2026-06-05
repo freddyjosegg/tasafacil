@@ -9,7 +9,10 @@ const RATE_ENDPOINTS = {
     'USD_paralelo': 'https://ve.dolarapi.com/v1/dolares/paralelo',
     'EUR_oficial': 'https://ve.dolarapi.com/v1/euros/oficial',
     'EUR_paralelo': 'https://ve.dolarapi.com/v1/euros/paralelo',
-    'BRL_paralelo': null
+    'BRL_oficial': null,
+    'BRL_paralelo': null,
+    'COP_oficial': null,
+    'COP_paralelo': null
 };
 
 // --- LÓGICA DE TEMA (CLARO / OSCURO / PREMIUM) ---
@@ -107,6 +110,7 @@ function updateCurrencyUI() {
     let symbol = '$';
     if (referenceCurrency === 'EUR') symbol = '€';
     else if (referenceCurrency === 'BRL') symbol = 'R$';
+    else if (referenceCurrency === 'COP') symbol = 'COP$';
     
     document.getElementById('ref-currency-label').innerText = referenceCurrency;
     document.getElementById('budget-currency-code').innerText = referenceCurrency;
@@ -120,12 +124,14 @@ function updateCurrencyUI() {
         let refName = 'Dólares (USD)';
         if (referenceCurrency === 'EUR') refName = 'Euros (EUR)';
         else if (referenceCurrency === 'BRL') refName = 'Reales (BRL)';
+        else if (referenceCurrency === 'COP') refName = 'Pesos (COP)';
         quickOptRef.innerText = `De ${refName} a Bolívares (Bs)`;
     }
     if (quickOptVes) {
         let refName = 'Dólares (USD)';
         if (referenceCurrency === 'EUR') refName = 'Euros (EUR)';
         else if (referenceCurrency === 'BRL') refName = 'Reales (BRL)';
+        else if (referenceCurrency === 'COP') refName = 'Pesos (COP)';
         quickOptVes.innerText = `De Bolívares (Bs) a ${refName}`;
     }
     if (currencyOptRef) {
@@ -168,6 +174,8 @@ async function fetchReferenceRate(rateType) {
         referenceCurrency = 'EUR';
     } else if (rateType.startsWith('BRL')) {
         referenceCurrency = 'BRL';
+    } else if (rateType.startsWith('COP')) {
+        referenceCurrency = 'COP';
     } else {
         referenceCurrency = 'USD';
     }
@@ -175,31 +183,37 @@ async function fetchReferenceRate(rateType) {
     
     // Controlar el badge de BETA
     const betaBadge = document.getElementById('beta-badge');
+    const isTriangulated = rateType === 'BRL_paralelo' || rateType === 'BRL_oficial' || rateType === 'COP_paralelo' || rateType === 'COP_oficial';
     if (betaBadge) {
-        betaBadge.style.display = rateType === 'BRL_paralelo' ? 'inline-block' : 'none';
+        betaBadge.style.display = isTriangulated ? 'inline-block' : 'none';
     }
     
     try {
         let rateValue = 0;
         let updateDateStr = '';
         
-        if (rateType === 'BRL_paralelo') {
-            // Tasa cruzada: Dólar Paralelo / Tasa USD-BRL
-            const [resVes, resBrl] = await Promise.all([
-                fetch('https://ve.dolarapi.com/v1/dolares/paralelo'),
-                fetch('https://economia.awesomeapi.com.br/json/last/USD-BRL')
-            ]);
-            if (!resVes.ok || !resBrl.ok) throw new Error('Error en la red');
+        if (isTriangulated) {
+            const isParalelo = rateType.endsWith('paralelo');
+            const isCop = rateType.startsWith('COP');
+            const dolarEndpoint = isParalelo ? 'https://ve.dolarapi.com/v1/dolares/paralelo' : 'https://ve.dolarapi.com/v1/dolares/oficial';
+            const awesomePair = isCop ? 'USD-COP' : 'USD-BRL';
+            const awesomeEndpoint = `https://economia.awesomeapi.com.br/json/last/${awesomePair}`;
             
-            const [dataVes, dataBrl] = await Promise.all([
+            const [resVes, resAwesome] = await Promise.all([
+                fetch(dolarEndpoint),
+                fetch(awesomeEndpoint)
+            ]);
+            if (!resVes.ok || !resAwesome.ok) throw new Error('Error en la red');
+            
+            const [dataVes, dataAwesome] = await Promise.all([
                 resVes.json(),
-                resBrl.json()
+                resAwesome.json()
             ]);
             
             const usdToVes = dataVes.promedio;
-            const usdToBrl = parseFloat(dataBrl.USDBRL.bid);
+            const usdToForeign = parseFloat(isCop ? dataAwesome.USDCOP.bid : dataAwesome.USDBRL.bid);
             
-            rateValue = usdToVes / usdToBrl;
+            rateValue = usdToVes / usdToForeign;
             const updateDate = new Date(dataVes.fechaActualizacion);
             updateDateStr = `Actualizado (implícito): ${updateDate.toLocaleDateString()} ${updateDate.toLocaleTimeString()}`;
         } else {
@@ -239,7 +253,7 @@ function calculateQuick() {
     const currency = document.getElementById('quick-currency').value;
     const resultElement = document.getElementById('quick-result');
     const copyBtn = document.getElementById('copy-btn');
-    const symbol = referenceCurrency === 'EUR' ? '€' : (referenceCurrency === 'BRL' ? 'R$' : '$');
+    const symbol = referenceCurrency === 'EUR' ? '€' : (referenceCurrency === 'BRL' ? 'R$' : (referenceCurrency === 'COP' ? 'COP$' : '$'));
 
     if (currency === referenceCurrency) {
         lastCalculatedAmount = amount * currentRate;
@@ -309,7 +323,7 @@ function updateBalance() {
     });
 
     // Actualizar textos de saldo
-    const symbol = referenceCurrency === 'EUR' ? '€' : (referenceCurrency === 'BRL' ? 'R$' : '$');
+    const symbol = referenceCurrency === 'EUR' ? '€' : (referenceCurrency === 'BRL' ? 'R$' : (referenceCurrency === 'COP' ? 'COP$' : '$'));
     document.getElementById('remaining-usd').innerText = `${symbol}${formatVE(currentBalanceRef)}`;
     document.getElementById('remaining-ves').innerText = `Bs ${formatVE(currentBalanceRef * currentRate)}`;
     
@@ -319,7 +333,7 @@ function updateBalance() {
     const progressLabel = document.getElementById('progress-label');
 
     if (initialBudget > 0) {
-        let spent = initialBudget - currentBalanceUSD;
+        let spent = initialBudget - currentBalanceRef;
         let percentage = (spent / initialBudget) * 100;
         // Asegurar que el porcentaje esté entre 0 y 100 para la barra visual
         let visualPercentage = Math.max(0, Math.min(100, percentage));
