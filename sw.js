@@ -1,9 +1,10 @@
-const CACHE_NAME = 'tasafacil-v3';
+const CACHE_NAME = 'tasafacil-v1.1.0';
 const urlsToCache = [
   './',
   './index.html',
   './manifest.json',
   './app.js',
+  './assets/styles.css',
   './assets/icon-192.png',
   './assets/icon-512.png'
 ];

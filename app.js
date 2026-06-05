@@ -1,25 +1,87 @@
 let currentRate = 0;
 let transactions = [];
 let lastCalculatedAmount = 0; 
+let referenceCurrency = 'USD';
+let currentRateType = 'USD_oficial';
 
-// --- LÓGICA DE MODO OSCURO ---
-function toggleDarkMode() {
-    document.body.classList.toggle('dark-mode');
-    const isDark = document.body.classList.contains('dark-mode');
-    localStorage.setItem('tasafacil_darkmode', isDark);
-    updateThemeIcon(isDark);
+const RATE_ENDPOINTS = {
+    'USD_oficial': 'https://ve.dolarapi.com/v1/dolares/oficial',
+    'USD_paralelo': 'https://ve.dolarapi.com/v1/dolares/paralelo',
+    'EUR_oficial': 'https://ve.dolarapi.com/v1/euros/oficial',
+    'EUR_paralelo': 'https://ve.dolarapi.com/v1/euros/paralelo'
+};
+
+// --- LÓGICA DE TEMA (CLARO / OSCURO / PREMIUM) ---
+function toggleTheme() {
+    let currentTheme = localStorage.getItem('tasafacil_theme') || 'auto';
+    let nextTheme = 'light';
+    
+    if (currentTheme === 'auto') {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        nextTheme = prefersDark ? 'light' : 'dark';
+    } else if (currentTheme === 'light') {
+        nextTheme = 'dark';
+    } else if (currentTheme === 'dark') {
+        nextTheme = 'premium';
+    } else if (currentTheme === 'premium') {
+        nextTheme = 'light';
+    }
+    
+    setTheme(nextTheme);
 }
 
-function updateThemeIcon(isDark) {
+function setTheme(theme) {
+    document.body.classList.remove('theme-light', 'theme-dark', 'theme-premium');
+    
+    if (theme === 'light') {
+        document.body.classList.add('theme-light');
+    } else if (theme === 'dark') {
+        document.body.classList.add('theme-dark');
+    } else if (theme === 'premium') {
+        document.body.classList.add('theme-premium');
+    }
+    
+    localStorage.setItem('tasafacil_theme', theme);
+    updateThemeIcon(theme);
+}
+
+function updateThemeIcon(theme) {
     const btn = document.getElementById('theme-toggle');
-    btn.innerText = isDark ? '🌙' : '☀️';
+    if (!btn) return;
+    
+    let icon = '☀️';
+    let title = 'Cambiar a modo oscuro';
+    
+    if (theme === 'light') {
+        icon = '☀️';
+        title = 'Cambiar a modo oscuro (🌙)';
+    } else if (theme === 'dark') {
+        icon = '🌙';
+        title = 'Cambiar a modo premium (👑)';
+    } else if (theme === 'premium') {
+        icon = '👑';
+        title = 'Cambiar a modo claro (☀️)';
+    } else {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        icon = prefersDark ? '🌙' : '☀️';
+        title = 'Cambiar tema';
+    }
+    
+    btn.innerText = icon;
+    btn.title = title;
 }
 
 // Cargar preferencia de tema al iniciar
-const savedTheme = localStorage.getItem('tasafacil_darkmode');
-if (savedTheme === 'true') {
-    document.body.classList.add('dark-mode');
-    updateThemeIcon(true);
+const savedTheme = localStorage.getItem('tasafacil_theme');
+if (savedTheme) {
+    setTheme(savedTheme);
+} else {
+    updateThemeIcon('auto');
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+        if (!localStorage.getItem('tasafacil_theme')) {
+            updateThemeIcon('auto');
+        }
+    });
 }
 
 // --- FUNCIONES UTILITARIAS ---
@@ -40,6 +102,29 @@ const parseAmount = (val) => {
 };
 
 // --- LÓGICA PRINCIPAL ---
+function updateCurrencyUI() {
+    const symbol = referenceCurrency === 'EUR' ? '€' : '$';
+    
+    document.getElementById('ref-currency-label').innerText = referenceCurrency;
+    document.getElementById('budget-currency-code').innerText = referenceCurrency;
+    
+    const quickOptRef = document.getElementById('quick-opt-ref');
+    const quickOptVes = document.getElementById('quick-opt-ves');
+    const currencyOptRef = document.getElementById('currency-opt-ref');
+    
+    if (quickOptRef) {
+        quickOptRef.value = referenceCurrency;
+        quickOptRef.innerText = referenceCurrency === 'EUR' ? 'De Euros (EUR) a Bolívares (Bs)' : 'De Dólares (USD) a Bolívares (Bs)';
+    }
+    if (quickOptVes) {
+        quickOptVes.innerText = referenceCurrency === 'EUR' ? 'De Bolívares (Bs) a Euros (EUR)' : 'De Bolívares (Bs) a Dólares (USD)';
+    }
+    if (currencyOptRef) {
+        currencyOptRef.value = referenceCurrency;
+        currencyOptRef.innerText = `${referenceCurrency} (${symbol})`;
+    }
+}
+
 function loadSavedData() {
     const savedBudget = localStorage.getItem('tasafacil_budget');
     const savedTransactions = localStorage.getItem('tasafacil_transactions');
@@ -47,6 +132,12 @@ function loadSavedData() {
     if (savedBudget) document.getElementById('budget').value = savedBudget;
     if (savedTransactions) {
         transactions = JSON.parse(savedTransactions);
+        // Compatibilidad con transacciones antiguas
+        transactions.forEach(t => {
+            if (t.amountInUSD !== undefined && t.amountInRef === undefined) {
+                t.amountInRef = t.amountInUSD;
+            }
+        });
         renderTransactions();
     }
 }
@@ -60,9 +151,17 @@ function saveDataAndRecalculate() {
     renderTransactions();
 }
 
-async function fetchBCVRate() {
+async function fetchReferenceRate(rateType) {
+    currentRateType = rateType;
+    localStorage.setItem('tasafacil_rate_type', rateType);
+    
+    referenceCurrency = rateType.startsWith('EUR') ? 'EUR' : 'USD';
+    updateCurrencyUI();
+    
+    const endpoint = RATE_ENDPOINTS[rateType] || RATE_ENDPOINTS['USD_oficial'];
+    
     try {
-        const response = await fetch('https://ve.dolarapi.com/v1/dolares/oficial');
+        const response = await fetch(endpoint);
         if (!response.ok) throw new Error('Error en la red');
         const data = await response.json();
         
@@ -72,8 +171,14 @@ async function fetchBCVRate() {
         const updateDate = new Date(data.fechaActualizacion);
         document.getElementById('last-update').innerText = `Actualizado: ${updateDate.toLocaleDateString()} ${updateDate.toLocaleTimeString()}`;
         
+        // Recalcular el equivalente en referencia para todas las transacciones en VES
+        transactions.forEach(t => {
+            t.amountInRef = t.currency === 'VES' ? (t.originalAmount / currentRate) : t.originalAmount;
+        });
+        
         calculateQuick();
         updateBalance(); 
+        renderTransactions();
 
     } catch (error) {
         document.getElementById('bcv-rate').innerText = "Error";
@@ -88,13 +193,14 @@ function calculateQuick() {
     const currency = document.getElementById('quick-currency').value;
     const resultElement = document.getElementById('quick-result');
     const copyBtn = document.getElementById('copy-btn');
+    const symbol = referenceCurrency === 'EUR' ? '€' : '$';
 
-    if (currency === 'USD') {
+    if (currency === referenceCurrency) {
         lastCalculatedAmount = amount * currentRate;
         resultElement.innerText = `Equivale a: Bs ${formatVE(lastCalculatedAmount)}`;
     } else {
         lastCalculatedAmount = amount / currentRate;
-        resultElement.innerText = `Equivale a: $${formatVE(lastCalculatedAmount)}`;
+        resultElement.innerText = `Equivale a: ${symbol}${formatVE(lastCalculatedAmount)}`;
     }
 
     copyBtn.style.display = amount > 0 ? 'inline-block' : 'none';
@@ -122,42 +228,44 @@ function addTransaction() {
     if (isNaN(amount) || amount <= 0) return alert("Ingresa un monto válido.");
     if (currentRate === 0) return alert("Esperando la tasa de cambio de internet...");
 
-    let amountInUSD = currency === 'VES' ? (amount / currentRate) : amount;
+    let amountInRef = currency === 'VES' ? (amount / currentRate) : amount;
     
     transactions.push({
         date: new Date().toLocaleString(),
         originalAmount: amount,
         currency: currency,
         type: type,
-        amountInUSD: amountInUSD
+        amountInRef: amountInRef
     });
 
     amountInput.value = ''; 
     saveDataAndRecalculate();
 }
 
-// Declarar funciones en el objeto global window para que sean accesibles desde los eventos inline HTML
-window.toggleDarkMode = toggleDarkMode;
-window.calculateQuick = calculateQuick;
-window.copyToClipboard = copyToClipboard;
-window.addTransaction = addTransaction;
-window.clearData = clearData;
-window.exportToCSV = exportToCSV;
-window.saveDataAndRecalculate = saveDataAndRecalculate;
+// --- CONFIGURACIÓN DE EVENT LISTENERS ---
+document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
+document.getElementById('quick-amount').addEventListener('input', calculateQuick);
+document.getElementById('quick-currency').addEventListener('change', calculateQuick);
+document.getElementById('copy-btn').addEventListener('click', copyToClipboard);
+document.getElementById('budget').addEventListener('input', saveDataAndRecalculate);
+document.getElementById('add-btn').addEventListener('click', addTransaction);
+document.getElementById('clear-btn').addEventListener('click', clearData);
+document.getElementById('export-btn').addEventListener('click', exportToCSV);
 
 function updateBalance() {
     if (currentRate === 0) return;
 
     let initialBudget = parseAmount(document.getElementById('budget').value);
-    let currentBalanceUSD = initialBudget;
+    let currentBalanceRef = initialBudget;
 
     transactions.forEach(t => {
-        currentBalanceUSD += t.type === 'expense' ? -t.amountInUSD : t.amountInUSD;
+        currentBalanceRef += t.type === 'expense' ? -t.amountInRef : t.amountInRef;
     });
 
     // Actualizar textos de saldo
-    document.getElementById('remaining-usd').innerText = `$${formatVE(currentBalanceUSD)}`;
-    document.getElementById('remaining-ves').innerText = `Bs ${formatVE(currentBalanceUSD * currentRate)}`;
+    const symbol = referenceCurrency === 'EUR' ? '€' : '$';
+    document.getElementById('remaining-usd').innerText = `${symbol}${formatVE(currentBalanceRef)}`;
+    document.getElementById('remaining-ves').innerText = `Bs ${formatVE(currentBalanceRef * currentRate)}`;
     
     // --- LÓGICA DE BARRA DE PROGRESO ---
     const progressContainer = document.getElementById('progress-container');
@@ -228,19 +336,19 @@ function exportToCSV() {
     if (transactions.length === 0 && initialBudget === 0) return alert("No hay datos para exportar.");
 
     let csvContent = "\uFEFF"; 
-    csvContent += "Fecha;Tipo de Movimiento;Moneda Original;Monto Original;Equivalente en USD\n";
+    csvContent += `Fecha;Tipo de Movimiento;Moneda Original;Monto Original;Equivalente en ${referenceCurrency}\n`;
 
     if (initialBudget > 0) {
         const formattedBudget = initialBudget.toFixed(2).replace('.', ',');
         const exportDate = new Date().toLocaleString(); 
-        csvContent += `${exportDate};Presupuesto Inicial Base;USD;${formattedBudget};${formattedBudget}\n`;
+        csvContent += `${exportDate};Presupuesto Inicial Base;${referenceCurrency};${formattedBudget};${formattedBudget}\n`;
     }
 
     transactions.forEach(t => {
         const typeLabel = t.type === 'expense' ? 'Gasto' : 'Ingreso';
         const formattedOriginal = t.originalAmount.toFixed(2).replace('.', ',');
-        const formattedUSD = t.amountInUSD.toFixed(2).replace('.', ',');
-        csvContent += `${t.date};${typeLabel};${t.currency};${formattedOriginal};${formattedUSD}\n`;
+        const formattedRef = t.amountInRef.toFixed(2).replace('.', ',');
+        csvContent += `${t.date};${typeLabel};${t.currency};${formattedOriginal};${formattedRef}\n`;
     });
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -258,5 +366,14 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js').catch(err => console.log('Error SW', err));
 }
 
+// --- CONFIGURACIÓN DE EVENT LISTENERS ADICIONALES ---
+document.getElementById('rate-selector').addEventListener('change', (e) => {
+    fetchReferenceRate(e.target.value);
+});
+
+// Inicializar tasa al cargar
+const savedRateType = localStorage.getItem('tasafacil_rate_type') || 'USD_oficial';
+document.getElementById('rate-selector').value = savedRateType;
+
 loadSavedData();
-fetchBCVRate();
+fetchReferenceRate(savedRateType);
